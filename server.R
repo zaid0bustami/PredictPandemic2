@@ -3,12 +3,21 @@ library(tidyverse)
 Sys.setlocale("LC_TIME", "C")
 
 #importing symptom trends data
-symptoms1 <- as.data.frame(read.csv("data/chills_cough_eyepain_aguesia_anosmia.csv"))[-(1:6),] %>% 
-  rename(date = ï..url)
-symptoms2 <- as.data.frame(read.csv("data/headache_fever_nasalcongestion_shortnessofbreath_rhinorrhea.csv"))[-(1:6),] %>% 
-  rename(date = ï..url)
-symptoms3 <- as.data.frame(read.csv("data/sorethroat.csv"))[-(1:6),] %>% 
-  rename(date = ï..url)
+symptoms1 <- as.data.frame(read.csv("data/chills_cough_eyepain_aguesia_anosmia.csv"))[-(1:5),]
+colnames(symptoms1) = symptoms1[1,]
+symptoms1 <- symptoms1[-1,] %>%
+  mutate_at(c("Chills", "Cough", "Eye Pain", "Anosmia", "Aguesia"), as.double)
+
+symptoms2 <- as.data.frame(read.csv("data/headache_fever_nasalcongestion_shortnessofbreath_rhinorrhea.csv"))[-(1:5),]
+colnames(symptoms2) = symptoms2[1,]
+symptoms2 <- symptoms2[-1,] %>%
+  mutate_at(c("Headache", "Fever", "Nose congestion", "Rhinorrhea", "Shortness of breath"), as.double)
+
+symptoms3 <- as.data.frame(read.csv("data/sorethroat.csv"))[-(1:5),]
+colnames(symptoms3) = symptoms3[1,]
+symptoms3 <- symptoms3[-1,] %>%
+  mutate_at(c("Sore throat"), as.double)
+
 covidData <- as.data.frame(read.csv("data/Korea-Covid-Data.csv")) %>% 
   separate(col = "date", sep = "/", into = c("day", "month", "year")) %>% 
   relocate(year, .before = "day")
@@ -22,24 +31,22 @@ for (r in 1:nrow(covidData)){
 }
 
 covidData <- covidData %>% 
-  unite(year, day, month, col = "date", sep = "-") %>% 
-  select(date, 
+  unite(year, day, month, col = "Date", sep = "-") %>% 
+  select(Date, 
          total_cases, new_cases_smoothed, 
          total_deaths, new_deaths_smoothed,
          new_cases_smoothed_per_million, total_cases_per_million,  
          new_deaths_smoothed_per_million, total_deaths_per_million)
 
 data2 <- symptoms1 %>% 
-  left_join(symptoms2, by = "date") %>% 
-  left_join(symptoms3, by = "date") %>% 
-  mutate("STATE" = "Korea") %>% 
-  relocate(STATE, .before = "date")
+  left_join(symptoms2, by = "Date") %>% 
+  left_join(symptoms3, by = "Date") %>% 
+  mutate("STATE" = "Korea, South") %>% 
+  relocate(STATE, .before = "Date")
 data3 <- data2 %>% 
-  left_join(covidData, by = "date") %>% 
-  mutate(day = sapply(date, function(i){
-    return <- str_sub(i, 9, 10)
-  })) %>% 
-  relocate(day, .after = "date")
+  left_join(covidData, by = "Date") %>% 
+  mutate(day = 1:nrow(data2)) %>% 
+  relocate(day, .after = "Date")
 
 # data3 <- as.data.frame(read.csv("/home/adminuser/python/files_output/all_time_series__johns-hopkins__ihme.csv", header=TRUE, sep=","))
 
@@ -54,12 +61,12 @@ codes3 <- unique(codes3)
 flags3 <- c(paste0("https://cdn.rawgit.com/lipis/flag-icon-css/master/flags/4x3/",codes3,".svg"))
 # data3 <- data3[,-c(3,4,5,22,23,24,25,26,31,32)] #remove codes and population data
 data3[is.na(data3)] <- 0
-# data3$DATE <- as.Date(data3$DATE, format = "%d/%m/%Y")
 colnames(data3)<- c("STATE", "DATE", "DAY", "Ageusia", "Anosmia", "Chills", 
                     "Cough", "Eye Pain", "Fever", "Headache", "Nasal Cong.", 
                     "Rhinorrea", "Short Breath", "Sore Throat", "Cases Cum.", 
                     "Cases", "Deaths Cum.", "Deaths", "Cases Norm.", 
                     "Cases Cum. Norm.", "Deaths Norm.", "Deaths Cum. Norm.")
+# data3$DATE <- as.Date(data3$DATE, format = "%d/%m/%Y")
 # data3 <- cbind(data3[,1:14],abs(data3[,15:22]))
 
 server <- function(input, output) { 
@@ -127,7 +134,8 @@ server <- function(input, output) {
         reactive_data[sapply(reactive_data, function(x) length(unique(na.omit(x)))) > 1]
         test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
         reactiveDf <- test
-        data <- reactiveDf[,-1] #()
+        data <- reactiveDf[,-1]
+        data <- data[,-1]########edit#############
         data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
         my_vars <- colnames(data[,-c(1:2)])
         data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -157,8 +165,8 @@ server <- function(input, output) {
         
         datz <- my_ts_def[c((nums-30):nums),]
         pred_data <- as_tibble(scores)
-        startDate <- as.Date(min(datz$DATE)) #()
-        endDate <- as.Date(max(datz$DATE)) #()
+        startDate <- as.Date(min(datz$DAY) + 18295.33) ####EDITTTTTTTTTTTTTT####
+        endDate <- as.Date(max(datz$DAY) + 18295.33) ####EDIT#####
         days <- seq(startDate, endDate, "1 day")
         pred_data <- cbind(days,pred_data)
         pred_data <- as_tsibble(pred_data)
@@ -175,6 +183,9 @@ server <- function(input, output) {
         
         num_days <- 14  #input$predict_days
         h_pred <- as.character(paste(num_days,"days"))
+        
+        ####BROWSER####
+        browser()
         
         fc <- fit %>% forecast(h = h_pred)
         
@@ -1752,6 +1763,8 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            ####BROWSER####
+            browser() 
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
