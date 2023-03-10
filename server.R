@@ -66,7 +66,7 @@ colnames(data3)<- c("STATE", "DATE", "DAY", "Ageusia", "Anosmia", "Chills",
                     "Rhinorrea", "Short Breath", "Sore Throat", "Cases Cum.", 
                     "Cases", "Deaths Cum.", "Deaths", "Cases Norm.", 
                     "Cases Cum. Norm.", "Deaths Norm.", "Deaths Cum. Norm.")
-# data3$DATE <- as.Date(data3$DATE, format = "%d/%m/%Y")
+data3$DATE <- as.Date(data3$DATE)
 # data3 <- cbind(data3[,1:14],abs(data3[,15:22]))
 
 server <- function(input, output) { 
@@ -135,7 +135,7 @@ server <- function(input, output) {
         test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
         reactiveDf <- test
         data <- reactiveDf[,-1]
-        data <- data[,-1]########edit#############
+        # data <- data[,-1]########edit#############
         data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
         my_vars <- colnames(data[,-c(1:2)])
         data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -165,9 +165,9 @@ server <- function(input, output) {
         
         datz <- my_ts_def[c((nums-30):nums),]
         pred_data <- as_tibble(scores)
-        startDate <- as.Date(min(datz$DAY) + 18295.33) ####EDITTTTTTTTTTTTTT####
-        endDate <- as.Date(max(datz$DAY) + 18295.33) ####EDIT#####
-        days <- seq(startDate, endDate, "1 day")
+        startDate <- as.Date(min(datz$DATE))
+        endDate <- as.Date(max(datz$DATE))
+        days <- seq(startDate, endDate, "7 days") ####edit####
         pred_data <- cbind(days,pred_data)
         pred_data <- as_tsibble(pred_data)
         
@@ -183,11 +183,45 @@ server <- function(input, output) {
         
         num_days <- 14  #input$predict_days
         h_pred <- as.character(paste(num_days,"days"))
+
+        ####PCA Plot####
+        df <- kmeans(pred_data %>% column_to_rownames("days"), centers = 3)$cluster %>%
+          as.data.frame() %>%
+          cbind(pred_data) %>%
+          mutate(cluster = as.character(.))
+        p <- df %>%
+          ggplot(aes(x = PC1, y = PC2, color = cluster)) +
+            geom_point(size = 3) +
+            labs(title = "Association of PC1 with PC2 for Naver Data +
+                          South Korean Data on COVID-19 Cases/Fatalities") +
+            scale_color_viridis_d(end = 0.75) +
+            theme_bw()
+        print(p)
         
-        ####BROWSER####
+        q <- df %>% 
+          left_join(data3, by = c("days" = "DATE")) %>% 
+          pivot_longer(cols = c("Ageusia", "Anosmia", "Chills", "Cough", "Eye Pain", "Fever", "Headache", "Nasal Cong.", "Rhinorrea", "Short Breath", "Sore Throat"), 
+                       names_to = "Symptom", values_to = "Value") %>% 
+          ggplot(aes(x = days, y = Value, fill = cluster)) + 
+            geom_col() + scale_fill_viridis_d(end = 0.75) + 
+            facet_wrap("Symptom", scales = "free_y")
+        print(q)
+        
+        r <- df %>% 
+          left_join(data3, by = c("days" = "DATE")) %>% 
+          pivot_longer(cols = c("Cases Cum.", 
+                                "Cases", "Deaths Cum.", "Deaths", "Cases Norm.", 
+                                "Cases Cum. Norm.", "Deaths Norm.", "Deaths Cum. Norm."), 
+                       names_to = "Statistic", values_to = "Value") %>% 
+          ggplot(aes(x = days, y = Value, fill = cluster)) + 
+          geom_col() + scale_fill_viridis_d(end = 0.75) + 
+          facet_wrap("Statistic", scales = "free_y")
+        print(r)
+        ####end PCA Plot####
+        
         browser()
         
-        fc <- fit %>% forecast(h = h_pred)
+        fc <- forecast(fit, h = h_pred)
         
         fc2 <- fit2 %>% forecast(h = h_pred)
         
@@ -1101,6 +1135,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -1162,6 +1197,7 @@ server <- function(input, output) {
     
     my_ts_def <- reactive({
         data <- reactiveDf()[,-1]
+        data <- data[,-1]########edit#############
         data <- data[,!(colnames(data) %in% as.character(input$remove_topics))]
         data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
         my_vars <- colnames(data[,-c(1:2)])
@@ -1382,6 +1418,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -1462,6 +1499,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -1577,6 +1615,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -1763,8 +1802,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
-            ####BROWSER####
-            browser() 
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -1837,6 +1875,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -2245,6 +2284,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -2407,6 +2447,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -2622,6 +2663,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -2960,6 +3002,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -3274,6 +3317,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -3397,6 +3441,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -3517,6 +3562,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
@@ -3596,6 +3642,7 @@ server <- function(input, output) {
             test <- reactive_data    #() %>% filter(DATE >= input$date_input[1] & DATE <=input$date_input[2])
             reactiveDf <- test
             data <- reactiveDf[,-1] #()
+            data <- data[,-1]########edit#############
             data <- data[,sapply(data, function(v) var(v, na.rm=TRUE)!=0)]
             my_vars <- colnames(data[,-c(1:2)])
             data <- as.data.frame(cbind(data[,c(1:2)],zoo::rollmean(data[,-c(1,2)], 1, fill = "extend")))# input$ma_selection
