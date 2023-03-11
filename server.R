@@ -2,7 +2,7 @@ library(tidyverse)
 
 Sys.setlocale("LC_TIME", "C")
 
-#importing symptom trends data
+#importing symptom trends data from Naver
 symptoms1 <- as.data.frame(read.csv("data/chills_cough_eyepain_aguesia_anosmia.csv"))[-(1:5),]
 colnames(symptoms1) = symptoms1[1,]
 symptoms1 <- symptoms1[-1,] %>%
@@ -18,11 +18,12 @@ colnames(symptoms3) = symptoms3[1,]
 symptoms3 <- symptoms3[-1,] %>%
   mutate_at(c("Sore throat"), as.double)
 
+# importing Korean COVID-19 data from Our World in Data
 covidData <- as.data.frame(read.csv("data/Korea-Covid-Data.csv")) %>% 
   separate(col = "date", sep = "/", into = c("day", "month", "year")) %>% 
   relocate(year, .before = "day")
 
-#
+# Reformating dates to match subsequent code
 for (r in 1:nrow(covidData)){
   n <- covidData$day[r]
   m <- covidData$month[r]
@@ -38,11 +39,14 @@ covidData <- covidData %>%
          new_cases_smoothed_per_million, total_cases_per_million,  
          new_deaths_smoothed_per_million, total_deaths_per_million)
 
+# Joining symptoms data frames into a singular data frame
 data2 <- symptoms1 %>% 
   left_join(symptoms2, by = "Date") %>% 
   left_join(symptoms3, by = "Date") %>% 
   mutate("STATE" = "Korea, South") %>% 
   relocate(STATE, .before = "Date")
+
+# Joining symptoms data frame with COVID-19 data frame
 data3 <- data2 %>% 
   left_join(covidData, by = "Date") %>% 
   mutate(day = 1:nrow(data2)) %>% 
@@ -185,10 +189,13 @@ server <- function(input, output) {
         h_pred <- as.character(paste(num_days,"days"))
 
         ####PCA Plot####
+        # k means clustering on PC1 and PC2
         df <- kmeans(pred_data %>% column_to_rownames("days"), centers = 3)$cluster %>%
           as.data.frame() %>%
           cbind(pred_data) %>%
           mutate(cluster = as.character(.))
+        
+        #scatterplot
         p <- df %>%
           ggplot(aes(x = PC1, y = PC2, color = cluster)) +
             geom_point(size = 3) +
@@ -198,6 +205,7 @@ server <- function(input, output) {
             theme_bw()
         print(p)
         
+        #bar plot on symptoms
         q <- df %>% 
           left_join(data3, by = c("days" = "DATE")) %>% 
           pivot_longer(cols = c("Ageusia", "Anosmia", "Chills", "Cough", "Eye Pain", "Fever", "Headache", "Nasal Cong.", "Rhinorrea", "Short Breath", "Sore Throat"), 
@@ -207,6 +215,7 @@ server <- function(input, output) {
             facet_wrap("Symptom", scales = "free_y")
         print(q)
         
+        #bar plot on incidence and mortality
         r <- df %>% 
           left_join(data3, by = c("days" = "DATE")) %>% 
           pivot_longer(cols = c("Cases Cum.", 
@@ -218,9 +227,7 @@ server <- function(input, output) {
           facet_wrap("Statistic", scales = "free_y")
         print(r)
         ####end PCA Plot####
-        
-        browser()
-        
+
         fc <- forecast(fit, h = h_pred)
         
         fc2 <- fit2 %>% forecast(h = h_pred)

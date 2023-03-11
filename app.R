@@ -1,9 +1,8 @@
 library(rsconnect)
 library(shiny)
 
-# options(shiny.reactlog=TRUE) 
+#run the app
 runApp()
-# runApp(display.mode="showcase")
 
+#deploy the app to the server
 # deployApp()
-
